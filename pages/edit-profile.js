@@ -1,29 +1,143 @@
-// import Avatar from "@material-ui/core/Avatar";
-// import FormControl from "@material-ui/core/FormControl";
-// import Paper from "@material-ui/core/Paper";
-// import Input from "@material-ui/core/Input";
-// import InputLabel from "@material-ui/core/InputLabel";
-// import Snackbar from "@material-ui/core/Snackbar";
-// import Dialog from "@material-ui/core/Dialog";
-// import DialogActions from "@material-ui/core/DialogActions";
-// import DialogContent from "@material-ui/core/DialogContent";
-// import DialogContentText from "@material-ui/core/DialogContentText";
-// import DialogTitle from "@material-ui/core/DialogTitle";
-// import VerifiedUserTwoTone from "@material-ui/icons/VerifiedUserTwoTone";
-// import Typography from "@material-ui/core/Typography";
-// import Button from "@material-ui/core/Button";
-// import CloudUpload from "@material-ui/icons/CloudUpload";
-// import FaceTwoTone from "@material-ui/icons/FaceTwoTone";
-// import EditSharp from "@material-ui/icons/EditSharp";
+import Avatar from "@material-ui/core/Avatar";
+import FormControl from "@material-ui/core/FormControl";
+import Paper from "@material-ui/core/Paper";
+import Input from "@material-ui/core/Input";
+import InputLabel from "@material-ui/core/InputLabel";
+import Snackbar from "@material-ui/core/Snackbar";
+import Dialog from "@material-ui/core/Dialog";
+import DialogActions from "@material-ui/core/DialogActions";
+import DialogContent from "@material-ui/core/DialogContent";
+import DialogContentText from "@material-ui/core/DialogContentText";
+import DialogTitle from "@material-ui/core/DialogTitle";
+import VerifiedUserTwoTone from "@material-ui/icons/VerifiedUserTwoTone";
+import Typography from "@material-ui/core/Typography";
+import Button from "@material-ui/core/Button";
+import CloudUpload from "@material-ui/icons/CloudUpload";
+import FaceTwoTone from "@material-ui/icons/FaceTwoTone";
+import EditSharp from "@material-ui/icons/EditSharp";
 import withStyles from "@material-ui/core/styles/withStyles";
+import { authInitialProps } from "../lib/auth";
+import { useState, useEffect } from "react";
+import { getAuthUser } from "../lib/api";
 
-class EditProfile extends React.Component {
-  state = {};
+const EditProfile = ({ auth, classes }) => {
+  const [userData, setUserData] = useState({
+    _id: "",
+    name: "",
+    email: "",
+    about: "",
+    avatar: "",
+    loading: false
+  });
+  const [avatarPreview, setPreview] = useState("");
+  let formData;
 
-  render() {
-    return <div>EditProfile</div>;
-  }
-}
+  useEffect(() => {
+    formData = new FormData();
+    setUserData({ ...userData, loading: true });
+    const getUser = async () => {
+      await getAuthUser(auth.user._id)
+        .then(data => {
+          setUserData({ ...data, loading: false });
+        })
+        .catch(err => console.log(err));
+    };
+    getUser();
+  }, []);
+
+  const handleChange = e => {
+    let inputValue;
+    if (event.target.name === "avatar") {
+      inputValue = event.target.files[0];
+      setPreview(createPreviewImage(inputValue));
+    } else {
+      inputValue = event.target.value;
+    }
+    formData.set(event.target.name, inputValue);
+    setUserData({ ...userData, [event.target.name]: inputValue });
+  };
+
+  const createPreviewImage = file => {
+    URL.createObjectURL(file);
+  };
+
+  return (
+    <div className={classes.root}>
+      <Paper className={classes.paper}>
+        <Avatar className={classes.avatar}>
+          <EditSharp />
+        </Avatar>
+        <Typography variant="h5" component="h1">
+          Edit Profile
+        </Typography>
+        <form className={classes.form}>
+          {userData.loading ? (
+            <Avatar className={classes.bigAvatar}>
+              <FaceTwoTone />
+            </Avatar>
+          ) : (
+            <Avatar
+              src={avatarPreview || userData.avatar}
+              className={classes.bigAvatar}
+            />
+          )}
+          <input
+            type="file"
+            name="avatar"
+            id="avatar"
+            accept="image/*"
+            onChange={handleChange}
+            className={classes.input}
+          />
+          <label htmlFor="avatar" className={classes.uploadButton}>
+            <Button variant="contained" color="secondary" component="span">
+              Upload Image <CloudUpload />
+            </Button>
+          </label>
+          <span className={classes.filename}>
+            {userData.avatar && userData.avatar.name}{" "}
+          </span>
+          <FormControl margin="normal" required fullWidth>
+            <InputLabel htmlFor="name">Name</InputLabel>
+            <Input
+              type="text"
+              name="name"
+              value={userData.name}
+              onChange={handleChange}
+            />
+          </FormControl>
+          <FormControl margin="normal" fullWidth>
+            <InputLabel htmlFor="name">About</InputLabel>
+            <Input
+              type="text"
+              name="about"
+              value={userData.about}
+              onChange={handleChange}
+            />
+          </FormControl>
+          <FormControl margin="normal" required fullWidth>
+            <InputLabel htmlFor="email">Name</InputLabel>
+            <Input
+              type="email"
+              name="email"
+              value={userData.email}
+              onChange={handleChange}
+            />
+          </FormControl>
+          <Button
+            type="submit"
+            fullWidth
+            disabled={userData.loading}
+            color="primary"
+            className={classes.submit}
+          >
+            Save
+          </Button>
+        </form>
+      </Paper>
+    </div>
+  );
+};
 
 const styles = theme => ({
   root: {
@@ -82,5 +196,7 @@ const styles = theme => ({
     display: "none"
   }
 });
+
+EditProfile.getInitialProps = authInitialProps(true);
 
 export default withStyles(styles)(EditProfile);
