@@ -16,128 +16,200 @@ import CloudUpload from "@material-ui/icons/CloudUpload";
 import FaceTwoTone from "@material-ui/icons/FaceTwoTone";
 import EditSharp from "@material-ui/icons/EditSharp";
 import withStyles from "@material-ui/core/styles/withStyles";
-import { authInitialProps } from "../lib/auth";
-import { useState, useEffect } from "react";
-import { getAuthUser } from "../lib/api";
+import Router from "next/router";
 
-const EditProfile = ({ auth, classes }) => {
-  const [userData, setUserData] = useState({
+import { authInitialProps } from "../lib/auth";
+import { getAuthUser, updateUser } from "../lib/api";
+
+class EditProfile extends React.Component {
+  state = {
     _id: "",
     name: "",
     email: "",
     about: "",
     avatar: "",
-    loading: false
-  });
-  const [avatarPreview, setPreview] = useState("");
-  let formData;
+    avatarPreview: "",
+    openSuccess: false,
+    openError: false,
+    error: "",
+    updatedUser: null,
+    isSaving: false,
+    isLoading: true
+  };
 
-  useEffect(() => {
-    formData = new FormData();
-    setUserData({ ...userData, loading: true });
-    const getUser = async () => {
-      await getAuthUser(auth.user._id)
-        .then(data => {
-          setUserData({ ...data, loading: false });
-        })
-        .catch(err => console.log(err));
-    };
-    getUser();
-  }, []);
+  componentDidMount() {
+    const { auth } = this.props;
 
-  const handleChange = e => {
+    this.userData = new FormData();
+    getAuthUser(auth.user._id)
+      .then(user => {
+        this.setState({
+          ...user,
+          isLoading: false
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        this.setState({ isLoading: false });
+      });
+  }
+
+  handleChange = event => {
     let inputValue;
+
     if (event.target.name === "avatar") {
       inputValue = event.target.files[0];
-      setPreview(createPreviewImage(inputValue));
+      this.setState({ avatarPreview: this.createPreviewImage(inputValue) });
     } else {
       inputValue = event.target.value;
     }
-    formData.set(event.target.name, inputValue);
-    setUserData({ ...userData, [event.target.name]: inputValue });
+    this.userData.set(event.target.name, inputValue);
+    this.setState({ [event.target.name]: inputValue });
   };
 
-  const createPreviewImage = file => {
-    URL.createObjectURL(file);
+  handleSubmit = event => {
+    event.preventDefault();
+    this.setState({ isSaving: true });
+    updateUser(this.state._id, this.userData)
+      .then(updatedUser => {
+        this.setState({ updatedUser, openSuccess: true }, () => {
+          setTimeout(() => Router.push(`/profile/${this.state._id}`), 6000);
+        });
+      })
+      .catch(this.showError);
   };
 
-  return (
-    <div className={classes.root}>
-      <Paper className={classes.paper}>
-        <Avatar className={classes.avatar}>
-          <EditSharp />
-        </Avatar>
-        <Typography variant="h5" component="h1">
-          Edit Profile
-        </Typography>
-        <form className={classes.form}>
-          {userData.loading ? (
-            <Avatar className={classes.bigAvatar}>
-              <FaceTwoTone />
-            </Avatar>
-          ) : (
-            <Avatar
-              src={avatarPreview || userData.avatar}
-              className={classes.bigAvatar}
+  createPreviewImage = file => URL.createObjectURL(file);
+
+  handleClose = () => this.setState({ openError: false });
+
+  showError = err => {
+    const error = (err.response && err.response.data) || err.message;
+    this.setState({ error, openError: true, isSaving: false });
+  };
+
+  render() {
+    const { classes } = this.props;
+    const {
+      name,
+      email,
+      avatar,
+      about,
+      avatarPreview,
+      isLoading,
+      isSaving,
+      updatedUser,
+      openSuccess,
+      openError,
+      error
+    } = this.state;
+
+    return (
+      <div className={classes.root}>
+        <Paper className={classes.paper}>
+          <Avatar className={classes.avatar}>
+            <EditSharp />
+          </Avatar>
+          <Typography variant="h5" component="h1">
+            Edit Profile
+          </Typography>
+
+          {/* Edit Profile Form */}
+          <form onSubmit={this.handleSubmit} className={classes.form}>
+            {isLoading ? (
+              <Avatar className={classes.bigAvatar}>
+                <FaceTwoTone />
+              </Avatar>
+            ) : (
+              <Avatar
+                src={avatarPreview || avatar}
+                className={classes.bigAvatar}
+              />
+            )}
+            <input
+              type="file"
+              name="avatar"
+              id="avatar"
+              accept="image/*"
+              onChange={this.handleChange}
+              className={classes.input}
             />
-          )}
-          <input
-            type="file"
-            name="avatar"
-            id="avatar"
-            accept="image/*"
-            onChange={handleChange}
-            className={classes.input}
-          />
-          <label htmlFor="avatar" className={classes.uploadButton}>
-            <Button variant="contained" color="secondary" component="span">
-              Upload Image <CloudUpload />
+            <label htmlFor="avatar" className={classes.uploadButton}>
+              <Button variant="contained" color="secondary" component="span">
+                Upload Image <CloudUpload />
+              </Button>
+            </label>
+            <span className={classes.filename}>{avatar && avatar.name}</span>
+            <FormControl margin="normal" required fullWidth>
+              <InputLabel htmlFor="name">Name</InputLabel>
+              <Input
+                type="text"
+                name="name"
+                value={name}
+                onChange={this.handleChange}
+              />
+            </FormControl>
+            <FormControl margin="normal" fullWidth>
+              <InputLabel htmlFor="about">About</InputLabel>
+              <Input
+                type="text"
+                name="about"
+                value={about}
+                onChange={this.handleChange}
+              />
+            </FormControl>
+            <FormControl margin="normal" required fullWidth>
+              <InputLabel htmlFor="email">Email</InputLabel>
+              <Input
+                type="email"
+                name="email"
+                value={email}
+                onChange={this.handleChange}
+              />
+            </FormControl>
+            <Button
+              type="submit"
+              fullWidth
+              disabled={isSaving || isLoading}
+              variant="contained"
+              color="primary"
+              className={classes.submit}
+            >
+              {isSaving ? "Saving..." : "Save"}
             </Button>
-          </label>
-          <span className={classes.filename}>
-            {userData.avatar && userData.avatar.name}{" "}
-          </span>
-          <FormControl margin="normal" required fullWidth>
-            <InputLabel htmlFor="name">Name</InputLabel>
-            <Input
-              type="text"
-              name="name"
-              value={userData.name}
-              onChange={handleChange}
-            />
-          </FormControl>
-          <FormControl margin="normal" fullWidth>
-            <InputLabel htmlFor="name">About</InputLabel>
-            <Input
-              type="text"
-              name="about"
-              value={userData.about}
-              onChange={handleChange}
-            />
-          </FormControl>
-          <FormControl margin="normal" required fullWidth>
-            <InputLabel htmlFor="email">Name</InputLabel>
-            <Input
-              type="email"
-              name="email"
-              value={userData.email}
-              onChange={handleChange}
-            />
-          </FormControl>
-          <Button
-            type="submit"
-            fullWidth
-            disabled={userData.loading}
-            color="primary"
-            className={classes.submit}
-          >
-            Save
-          </Button>
-        </form>
-      </Paper>
-    </div>
-  );
-};
+          </form>
+        </Paper>
+
+        {/* Error Snackbar */}
+        {error && (
+          <Snackbar
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "right"
+            }}
+            open={openError}
+            onClose={this.handleClose}
+            autoHideDuration={6000}
+            message={<span className={classes.snack}>{error}</span>}
+          />
+        )}
+
+        {/* Success Dialog */}
+        <Dialog open={openSuccess} disableBackdropClick={true}>
+          <DialogTitle>
+            <VerifiedUserTwoTone className={classes.icon} />
+            Profile Updated
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              User {updatedUser && updatedUser.name} was successfully updated!
+            </DialogContentText>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+}
 
 const styles = theme => ({
   root: {
